@@ -7,7 +7,8 @@ Button::Button(unsigned char pin) {
   m_pin = pin;
   m_pressed = false;
   m_checked_time_ms = 0L;
-  m_subscriber = nullptr;
+  m_on_press = nullptr;
+  m_on_release = nullptr;
 }
 
 void Button::setup() {
@@ -21,15 +22,24 @@ void Button::loop() {
   }
   m_checked_time_ms = time_ms;
 
-  int state = digitalRead(m_pin);
-  if ((LOW == state) != m_pressed) {
-    m_pressed = (LOW == state);
-    if (nullptr != m_subscriber) {
-      (*m_subscriber)(*this);
+  bool pressed = LOW == digitalRead(m_pin);
+  if (pressed && !m_pressed) {
+    m_pressed = pressed;
+    if (nullptr != m_on_press) {
+      (*m_on_press)();
+    }
+  } else if (!pressed && m_pressed) {
+    m_pressed = pressed;
+    if (nullptr != m_on_release) {
+      (*m_on_release)();
     }
   }
 }
 
-void Button::subscribe(void (*subscriber)(Button& button)) {
-  m_subscriber = subscriber;
+void Button::onPress(void (*subscriber)()) {
+  m_on_press = subscriber;
+}
+
+void Button::onRelease(void (*subscriber)()) {
+  m_on_release = subscriber;
 }

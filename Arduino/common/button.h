@@ -11,15 +11,18 @@ public:
   void setup();
   void loop();
 
-  void subscribe(void (*subscriber)(Button& button));
   bool pressed();
 
+  void onPress(void (*subscriber)());
+  void onRelease(void (*subscriber)());
+  
 protected:
 
   unsigned char m_pin;
   bool m_pressed;
   unsigned long m_checked_time_ms;
-  void (*m_subscriber)(Button& button);
+  void (*m_on_press)();
+  void (*m_on_release)();
 };
 
 inline bool Button::pressed() {
