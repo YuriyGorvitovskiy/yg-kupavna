@@ -6,9 +6,9 @@
 #define YELLOW 0x1FC9AF69
 #define RED    0x1FCB3D69
 
-//#define CURRENT GREEN
+#define CURRENT GREEN
 //#define CURRENT YELLOW
-#define CURRENT RED
+//#define CURRENT RED
 
 #if CURRENT == GREEN
 #define DEPENDS RED
@@ -36,11 +36,11 @@ painlessMesh  mesh;
 Button        button(BUTTON_PIN);
 
 bool getState(int device) {
-  return EEPROM.read(EEPROM_DEVICE_ADDRESS + DEVICE_LOCAL);
+  return EEPROM.read(EEPROM_DEVICE_ADDRESS + device);
 }
 
 void setState(int device, bool state) {
-  EEPROM.write(EEPROM_DEVICE_ADDRESS + DEVICE_LOCAL, state);
+  EEPROM.write(EEPROM_DEVICE_ADDRESS + device, state);
   EEPROM.commit();
 
   if (DEVICE_EXTERNAL == device) {
@@ -88,6 +88,7 @@ void onButtonPress() {
 
 void setup() {
   Serial.begin(115200);
+  Serial.println("Restart");
   EEPROM.begin(EEPROM_SIZE);
   pinMode(LED_PIN, OUTPUT);
 
