@@ -1,7 +1,7 @@
 #include <Arduino.h>
 #include "button.h"
 
-#define CHECK_INTERVAL_MS 200
+#define CHECK_INTERVAL_MS 50
 
 Button::Button(unsigned char pin) {
   m_pin = pin;

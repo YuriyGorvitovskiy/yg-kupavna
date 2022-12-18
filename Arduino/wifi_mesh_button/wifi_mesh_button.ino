@@ -6,9 +6,9 @@
 #define YELLOW 0x1FC9AF69
 #define RED    0x1FCB3D69
 
-#define CURRENT GREEN
+//#define CURRENT GREEN
 //#define CURRENT YELLOW
-//#define CURRENT RED
+#define CURRENT RED
 
 #if CURRENT == GREEN
 #define DEPENDS RED
