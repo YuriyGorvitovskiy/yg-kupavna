@@ -1,80 +1,111 @@
+#include <EEPROM.h>
 #include <painlessMesh.h>
+#include "button.h"
 
-// #define RED
-// #define YELLOW
-#define GREEN
+#define GREEN  0x1FC9BF39
+#define YELLOW 0x1FC9AF69
+#define RED    0x1FCB3D69
 
-#ifdef RED
-String nodeName = "RED"; // Name needs to be unique
-int32_t nodeID = 533413225; // Node Id unique
+//#define CURRENT GREEN
+//#define CURRENT YELLOW
+#define CURRENT RED
+
+#if CURRENT == GREEN
+#define DEPENDS RED
+#elif CURRENT == YELLOW
+#define DEPENDS GREEN
+#else
+#define DEPENDS YELLOW
 #endif
-#ifdef YELLOW
-String nodeName = "YELLOW"; // Name needs to be unique
-int32_t nodeID = 533311337; // Node Id unique
-#endif
-#ifdef GREEN
-String nodeName = "GREEN"; // Name needs to be unique
-int32_t nodeID = 533315385; // Node Id unique
-#endif
 
+#define MESH_PREFIX     "YG-RR"
+#define MESH_PASSWORD   "TZcqBRT6yN.bCwdsT3Ux"
+#define MESH_PORT       5555
 
-#define   MESH_PREFIX     "YG-RR"
-#define   MESH_PASSWORD   "TZcqBRT6yN.bCwdsT3Ux"
-#define   MESH_PORT       5555
+#define EEPROM_DEVICE_ADDRESS   0
+#define EEPROM_SIZE             256
 
-Scheduler userScheduler; // to control your personal task
+#define DEVICE_LOCAL    1
+#define DEVICE_EXTERNAL 2
+
+#define LED_PIN      27
+#define BUTTON_PIN   32
+
+Scheduler     userScheduler;
 painlessMesh  mesh;
+Button        button(BUTTON_PIN);
 
-void sendMessage();
-
-Task taskSendMessage( TASK_SECOND * 1 , TASK_FOREVER, &sendMessage );
-
-int counter = 0;
-void sendMessage() {
-  String msg = "ping";
-  mesh.sendBroadcast( nodeName + ":" + ++counter );
-  taskSendMessage.setInterval( random( TASK_SECOND * 1, TASK_SECOND * 5 ));
+bool getState(int device) {
+  return EEPROM.read(EEPROM_DEVICE_ADDRESS + DEVICE_LOCAL);
 }
 
-// Needed for painless library
-void receivedCallback( uint32_t from, String &msg ) {
-  Serial.printf("Received from %u msg=%s\n", from, msg.c_str());
+void setState(int device, bool state) {
+  EEPROM.write(EEPROM_DEVICE_ADDRESS + DEVICE_LOCAL, state);
+  EEPROM.commit();
+
+  if (DEVICE_EXTERNAL == device) {
+    digitalWrite(LED_PIN, state ? HIGH : LOW);
+  }
+  Serial.println("State: " + String(device, DEC) + ":" + (state ? "T" : "F"));
 }
-void newConnectionCallback(uint32_t nodeId) {
-  Serial.printf("New Connection, nodeId = %u\n", nodeId);
+
+void updateMessage(byte device, bool state) {
+  mesh.sendBroadcast("UPDATE:" + String(device, DEC) + ":" + (state ? "T" : "F"));
 }
-void changedConnectionCallback() {
-  Serial.printf("Changed connections\n");
+
+void updateMessage(uint32_t destId, byte device, bool state) {
+  mesh.sendSingle(destId, "UPDATE:" + String(device, DEC) + ":" + (state ? "T" : "F"));
 }
-void nodeTimeAdjustedCallback(int32_t offset) {
-  Serial.printf("Adjusted time %u. Offset = %d\n", mesh.getNodeTime(), offset);
+
+void requestMessage(uint32_t destId, byte device) {
+  mesh.sendSingle(destId, "REQUEST:" +  String(device, DEC));
+}
+
+void onMessage( uint32_t from, String &msg ) {
+  Serial.println("Message: " + msg);
+  if (msg.startsWith("REQIEST:")) {
+    byte device = msg.substring(8).toInt(); 
+    updateMessage(device, getState(device));
+    return;
+  }  
+  if (msg.startsWith("UPDATE:")) {
+    if (DEPENDS == from) {
+      String payload = msg.substring(7);
+      int i = payload.indexOf(":");
+      byte device =  payload.substring(0,i).toInt();
+      boolean state = 'T' == payload[i+1];
+      setState(device + 1, state);
+    }
+    return;
+  }
+}
+
+void onButtonPress() {
+  bool newState = !getState(DEVICE_LOCAL);
+  setState(DEVICE_LOCAL, newState);
+  updateMessage(DEVICE_LOCAL, newState);
 }
 
 void setup() {
   Serial.begin(115200);
-  Serial.println(nodeName);
+  EEPROM.begin(EEPROM_SIZE);
+  pinMode(LED_PIN, OUTPUT);
 
   //mesh.setDebugMsgTypes( ERROR | STARTUP | MESH_STATUS | CONNECTION | SYNC | COMMUNICATION | GENERAL | MSG_TYPES | REMOTE ); // all types on
   mesh.setDebugMsgTypes( ERROR | STARTUP | MESH_STATUS ); 
   mesh.init( MESH_PREFIX, MESH_PASSWORD, &userScheduler, MESH_PORT );
+  mesh.onReceive(&onMessage);
 
-/*
-#ifdef RED
-  mesh.setRoot(true);
-#endif
-  mesh.setContainsRoot(true);
-*/
+  button.setup();
+  button.onPress(&onButtonPress);
 
-  mesh.onReceive(&receivedCallback);
-  mesh.onNewConnection(&newConnectionCallback);
-  mesh.onChangedConnections(&changedConnectionCallback);
-  mesh.onNodeTimeAdjusted(&nodeTimeAdjustedCallback);
-  userScheduler.addTask( taskSendMessage );
-  taskSendMessage.enable();
-  // put your setup code here, to run once:
+  digitalWrite(LED_PIN, getState(DEVICE_EXTERNAL) ? HIGH : LOW);
+
+  updateMessage(DEVICE_LOCAL, getState(DEVICE_LOCAL));
+  requestMessage(DEPENDS, DEVICE_LOCAL);
 }
 
 void loop() {
   mesh.update();
-  // construnct_json();
+  button.loop();
 }
