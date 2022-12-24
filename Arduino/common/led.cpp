@@ -28,7 +28,7 @@ void LED::set(unsigned char brightness) {
 
 Slow::Slow(LED& led, unsigned char brightness, unsigned long shine_ms, unsigned long fade_ms):
  m_led(&led),
- m_brightness(max((int)brightness,PWM_MAX)),
+ m_brightness(brightness),
  m_shine_ms(shine_ms),
  m_fade_ms(fade_ms) {
   m_state = m_led->get() != PWM_MIN;
@@ -53,7 +53,7 @@ void Slow::loop() {
       m_start_ms = 0L;
       m_led->set(PWM_MIN);
     } else {  
-      m_led->set(m_brightness * (m_fade_ms - (current_ms - m_start_ms))/m_fade_ms);
+      m_led->set(m_brightness * (m_start_ms + m_fade_ms - current_ms)/m_fade_ms);
     }
   }
 }
@@ -62,7 +62,7 @@ void Slow::set(bool on) {
   if (m_state == on) {
     return;
   }
-  m_state == on;
+  m_state = on;
   unsigned long current_ms = millis();
   if (0L == m_start_ms) {
     m_start_ms = current_ms;
@@ -73,13 +73,13 @@ void Slow::set(bool on) {
       m_start_ms = current_ms;
       return;
     }
-    m_start_ms = current_ms - (m_fade_ms - (current_ms - m_start_ms)) * m_shine_ms / m_fade_ms;
+    m_start_ms = current_ms - (m_start_ms + m_fade_ms - current_ms) * m_shine_ms / m_fade_ms;
   } else {
     if (current_ms - m_start_ms > m_shine_ms) {
       m_start_ms = current_ms;
       return;
     }
-    m_start_ms = current_ms - (m_shine_ms - (current_ms - m_start_ms)) * m_fade_ms / m_shine_ms;
+    m_start_ms = current_ms - (m_start_ms + m_shine_ms - current_ms) * m_fade_ms / m_shine_ms;
   }
 }
 
@@ -113,3 +113,36 @@ void Blink::set(bool blink) {
     m_start_blink_ms = 0L;
   }
 }
+
+Sequence::Sequence(Event* events, int count) :
+  m_events(events),
+  m_count(count) {
+  stop();
+}
+
+void Sequence::loop() {
+  if(0L == m_start_ms) {
+    return;
+  }
+
+  long ms =  millis() - m_start_ms;
+  for (int i = 0; i <= m_next; ++i) {
+     ms -= m_events[i].delay_ms;
+  }
+  if (ms >= 0) {
+    (*(m_events[m_next].m_on_event))();
+    if (++m_next >= m_count) {
+      stop();
+    }
+  }
+}
+void Sequence::start() {
+  m_start_ms = millis();
+  m_next = 0;
+}
+
+void Sequence::stop() {
+  m_start_ms = 0L;
+  m_next = 0;
+}
+

@@ -32,14 +32,64 @@
 Scheduler     userScheduler;
 painlessMesh  mesh;
 
-
-
 Button        button(BUTTON_PIN);
 LED           buttonBlueLed(true, BUTTON_BLUE_LED_PIN, 0);
 LED           buttonGreenLed(true, BUTTON_GREEN_LED_PIN, 1);
 LED           buttonRedLed(true, BUTTON_RED_LED_PIN, 2);
 LED           trafficRedLed(false, TRAFIC_RED_LED_PIN, 3);
 LED           trafficWhiteLed(false, TRAFIC_WHITE_LED_PIN, 4);
+
+Slow          trafficRedLedAnimation(trafficRedLed, 64, 1500L, 1500L);
+Slow          trafficWhiteLedAnimation(trafficWhiteLed, 64, 1500L, 1500L);
+
+Blink         buttonBlueLedBlink(buttonBlueLed, 300L, 300L);
+Blink         buttonRedLedBlink(buttonRedLed, 300L, 300L);
+
+
+void switchRedTrafic() {
+  trafficRedLedAnimation.set(true);
+}
+
+void switchWhiteTrafic() {
+  trafficWhiteLedAnimation.set(true);  
+}
+
+void startSwitchStraight() {
+  trafficWhiteLedAnimation.set(false);
+  buttonGreenLed.set(0);
+  buttonRedLed.set(0);
+  buttonBlueLed.set(255);
+  buttonRedLedBlink.set(false);
+  buttonBlueLedBlink.set(true);
+}
+
+void finishSwitchStraight() {
+  buttonBlueLedBlink.set(false);
+  buttonRedLed.set(0);
+  buttonBlueLed.set(0);
+  buttonGreenLed.set(255);
+}
+
+void startSwitchDivert() {
+  buttonGreenLed.set(0);
+  buttonBlueLed.set(0);
+  buttonRedLed.set(255);
+  buttonBlueLedBlink.set(false);
+  buttonRedLedBlink.set(true);
+}
+
+void finishSwitchDivert() {
+  buttonRedLedBlink.set(false);
+  buttonBlueLed.set(0);
+  buttonRedLed.set(255);
+  buttonGreenLed.set(255);
+  trafficRedLedAnimation.set(false);
+}
+
+Event straightEvents[] = {{0L, &startSwitchStraight}, {1500L, &switchRedTrafic}, {3000L, &finishSwitchStraight}};
+Event divertEvents[] = {{0L, &startSwitchDivert}, {3000L, &finishSwitchDivert}, {1500L, &switchWhiteTrafic}};
+Sequence   switchStraight(straightEvents, 3);
+Sequence   switchDivert(divertEvents, 3);
 
 bool getState() {
   return EEPROM.read(EEPROM_DEVICE_ADDRESS + DEVICE_LOCAL);
@@ -50,19 +100,13 @@ void setState(bool state) {
   EEPROM.commit();
 
   if (state) {
-    buttonRedLed.set(0);
-    buttonGreenLed.set(255);
-    buttonBlueLed.set(0);
-    trafficRedLed.set(255);
-    trafficWhiteLed.set(0);
+    switchDivert.stop();
+    switchStraight.start();
   } else {
-    buttonRedLed.set(255);
-    buttonGreenLed.set(255);
-    buttonBlueLed.set(0);
-    trafficRedLed.set(0);
-    trafficWhiteLed.set(255);
+    switchStraight.stop();
+    switchDivert.start();
   }
-  Serial.println(String("State: ") + (state ? "Straight" : "Diverge"));
+  //Serial.println(String("State: ") + (state ? "Straight" : "Diverge"));
 }
 
 void updateMessage(byte device, bool state) {
@@ -78,7 +122,7 @@ void requestMessage(uint32_t destId, byte device) {
 }
 
 void onMessage( uint32_t from, String &msg ) {
-  Serial.println("Message: " + msg);
+  //Serial.println("Message: " + msg);
 }
 
 void onButtonPress() {
@@ -88,8 +132,8 @@ void onButtonPress() {
 }
 
 void setup() {
-  Serial.begin(115200);
-  Serial.println("Restart");
+  //Serial.begin(115200);
+  //Serial.println("Restart");
   EEPROM.begin(EEPROM_SIZE);
   
 
@@ -107,6 +151,7 @@ void setup() {
   trafficRedLed.setup();
   trafficWhiteLed.setup();
 
+  //Serial.println("State Initializing");
   setState(getState());
 
   updateMessage(DEVICE_LOCAL, getState());
@@ -116,4 +161,10 @@ void setup() {
 void loop() {
   mesh.update();
   button.loop();
+  trafficRedLedAnimation.loop();
+  trafficWhiteLedAnimation.loop();
+  buttonBlueLedBlink.loop();
+  buttonRedLedBlink.loop();
+  switchStraight.loop();
+  switchDivert.loop();
 }

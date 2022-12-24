@@ -74,5 +74,26 @@ inline bool Blink::get()  const{
   return m_blink;
 }
 
+struct Event {
+  unsigned long delay_ms;
+  void (*m_on_event)();
+};
+
+class Sequence {
+public:
+  Sequence(Event* events, int count);
+
+  void loop();
+  void start();
+  void stop();
+
+protected:
+
+  const Event*  m_events;
+  const int     m_count;
+
+  unsigned long m_start_ms;
+  int           m_next;
+};
 
 #endif  //led_h
