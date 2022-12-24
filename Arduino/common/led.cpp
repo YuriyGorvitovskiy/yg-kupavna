@@ -14,7 +14,7 @@ LED::LED(bool ctrl_anode, unsigned char pin, unsigned char channel) :
 }
 
 void LED::setup() {
-  ledcSetup(m_channel, PWM_FRQUENCY, 8);
+  ledcSetup(m_channel, PWM_FRQUENCY, PWM_RESOLUTION);
   ledcAttachPin(m_pin, m_channel);
   ledcWrite(m_channel, m_ctrl_anode ? m_brightness : PWM_MAX - m_brightness);
 }

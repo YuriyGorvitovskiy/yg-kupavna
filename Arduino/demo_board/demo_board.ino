@@ -76,6 +76,7 @@ void startSwitchDivert() {
   buttonRedLed.set(255);
   buttonBlueLedBlink.set(false);
   buttonRedLedBlink.set(true);
+  trafficRedLedAnimation.set(true); 
 }
 
 void finishSwitchDivert() {
